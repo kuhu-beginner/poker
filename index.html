@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンライン テキサスホールデム</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(45deg, #1e3c72, #2a5298);
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .lobby {
+            text-align: center;
+            background: rgba(0,0,0,0.3);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .game-table {
+            background: #0f5132;
+            border-radius: 50px;
+            padding: 30px;
+            margin: 20px 0;
+            position: relative;
+            min-height: 400px;
+        }
+        .community-cards {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .card {
+            display: inline-block;
+            background: white;
+            color: black;
+            padding: 10px 8px;
+            margin: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+        .players-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        .player {
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px;
+            min-width: 150px;
+        }
+        .player.current {
+            border: 2px solid #ffd700;
+        }
+        .player.folded {
+            opacity: 0.5;
+        }
+        .hand {
+            margin: 10px 0;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #218838;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .fold-btn { background: #dc3545; }
+        .call-btn { background: #007bff; }
+        .raise-btn { background: #ffc107; color: black; }
+        input {
+            padding: 10px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .pot {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffd700;
+            margin: 15px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        .poker-hands {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .hands-list {
+            text-align: left;
+        }
+        .hand-item {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+        .modal-content {
+            background-color: #1e3c72;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            right: 20px;
+            top: 15px;
+        }
+        .close:hover,
+        .close:focus {
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal h2 {
+            margin-top: 0;
+            color: #ffd700;
+        }
+        .modal h3 {
+            color: #87ceeb;
+            margin-top: 25px;
+        }
+        .modal ol, .modal ul {
+            padding-left: 20px;
+        }
+        .modal li {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center;">🃏 オンライン テキサスホールデム 🃏</h1>
+        
+        <div style="text-align: center; margin: 10px 0;">
+            <button onclick="showHelp()" style="background: #17a2b8;">ルール・遊び方</button>
+        </div>
+
+        <div id="lobby" class="lobby">
+            <h2>ゲームロビー</h2>
+            <div>
+                <input type="text" id="playerName" placeholder="あなたの名前" maxlength="20">
+            </div>
+            <div style="margin: 20px 0;">
+                <button onclick="createRoom()">新しいルームを作成</button>
+                <button onclick="joinRoom()">ルームに参加</button>
+            </div>
+            <div>
+                <input type="text" id="roomId" placeholder="ルームID" maxlength="8">
+            </div>
+            <div id="roomInfo" class="hidden">
+                <h3>ルーム: <span id="currentRoomId"></span></h3>
+                <button onclick="startGame()">ゲーム開始</button>
+            </div>
+        </div>
+
+        <div id="gameArea" class="hidden">
+            <div class="game-table">
+                <div class="pot">ポット: <span id="potAmount">0</span>MP</div>
+
+                <div class="community-cards">
+                    <h3>コミュニティカード</h3>
+                    <div id="communityCards"></div>
+                </div>
+
+                <div class="players-container" id="playersContainer">
+                    <!-- プレイヤー情報がここに表示される -->
+                </div>
+            </div>
+
+            <div class="controls">
+                <div>
+                    <h3>あなたの手札</h3>
+                    <div id="myHand"></div>
+                </div>
+
+                <div id="actionButtons">
+                    <button class="fold-btn" onclick="playerAction('fold')">フォールド</button>
+                    <button class="call-btn" id="callBtn" onclick="playerAction('call')">コール</button>
+                    <button class="check-btn" id="checkBtn" onclick="playerAction('check')">チェック</button>
+                    <button class="raise-btn" onclick="showRaiseInput()">レイズ</button>
+                </div>
+
+                <div id="raiseInput" class="hidden">
+                    <input type="number" id="raiseAmount" placeholder="レイズ額（1000MP単位）" min="1000" step="1000">
+                    <button onclick="playerAction('raise')">レイズ実行</button>
+                    <button onclick="hideRaiseInput()">キャンセル</button>
+                </div>
+
+                 <div id="nextRoundButton" class="hidden">
+                    <button onclick="nextRound()">次のラウンド開始</button>
+                </div>
+            </div>
+
+            <!-- ポーカー役一覧 -->
+            <div id="pokerHands" class="poker-hands">
+                <h3>ポーカーの役（強い順）</h3>
+                <div class="hands-list">
+                    <div class="hand-item"><strong>ロイヤルフラッシュ</strong> - A・K・Q・J・10 同じスート</div>
+                    <div class="hand-item"><strong>ストレートフラッシュ</strong> - 連続する5枚 同じスート</div>
+                    <div class="hand-item"><strong>フォーカード</strong> - 同じ数字4枚</div>
+                    <div class="hand-item"><strong>フルハウス</strong> - 3カード＋ペア</div>
+                    <div class="hand-item"><strong>フラッシュ</strong> - 同じスートの5枚</div>
+                    <div class="hand-item"><strong>ストレート</strong> - 連続する5枚</div>
+                    <div class="hand-item"><strong>スリーカード</strong> - 同じ数字3枚</div>
+                    <div class="hand-item"><strong>ツーペア</strong> - ペア2組</div>
+                    <div class="hand-item"><strong>ワンペア</strong> - 同じ数字2枚</div>
+                    <div class="hand-item"><strong>ハイカード</strong> - 役なし（一番強いカード勝負）</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ヘルプモーダル -->
+        <div id="helpModal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeHelp()">&times;</span>
+                <h2>テキサスホールデム ルール・遊び方</h2>
+                
+                <h3>🎯 ゲームの目的</h3>
+                <p>手札2枚とコミュニティカード5枚を使って、最強の5枚の組み合わせを作る</p>
+                
+                <h3>🔄 ゲームの流れ</h3>
+                <ol>
+                    <li><strong>参加費</strong> - 全員1000MP支払い</li>
+                    <li><strong>手札配布</strong> - 各プレイヤーに2枚ずつ配られる</li>
+                    <li><strong>プリフロップ</strong> - 手札のみでベッティング</li>
+                    <li><strong>フロップ</strong> - コミュニティカード3枚公開＋ベッティング</li>
+                    <li><strong>ターン</strong> - コミュニティカード4枚目公開＋ベッティング</li>
+                    <li><strong>リバー</strong> - コミュニティカード5枚目公開＋ベッティング</li>
+                    <li><strong>ショーダウン</strong> - 残ったプレイヤーで役の強さを比較</li>
+                </ol>
+                
+                <h3>🎮 アクション</h3>
+                <ul>
+                    <li><strong>チェック</strong> - 追加ベットなしで次へ（他の人もベットしていない時のみ）</li>
+                    <li><strong>コール</strong> - 他の人のベット額に合わせる</li>
+                    <li><strong>レイズ</strong> - ベット額を上げる（1000MP単位）</li>
+                    <li><strong>フォールド</strong> - 降りる（そのラウンドは負け確定）</li>
+                </ul>
+                
+                <h3>💡 初心者のコツ</h3>
+                <ul>
+                    <li>強い手札（ペア、同じスート、高い数字）の時は積極的に</li>
+                    <li>弱い手札の時は無理をしない</li>
+                    <li>コミュニティカードと組み合わせて役を考える</li>
+                    <li>相手の行動を観察して判断する</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentRoomId = null;
+        let myPlayerId = null;
+        let gameState = null;
+
+        // ソケットイベントハンドラー
+        socket.on('room_created', (data) => {
+            currentRoomId = data.room_id;
+            myPlayerId = data.player_id;
+            document.getElementById('currentRoomId').textContent = currentRoomId;
+            document.getElementById('roomInfo').classList.remove('hidden');
+            alert(`ルームが作成されました: ${currentRoomId}`);
+        });
+
+        socket.on('joined_room', (data) => {
+            currentRoomId = data.room_id;
+            myPlayerId = data.player_id;
+            document.getElementById('currentRoomId').textContent = currentRoomId;
+            document.getElementById('roomInfo').classList.remove('hidden');
+        });
+
+        socket.on('game_started', () => {
+            document.getElementById('lobby').classList.add('hidden');
+            document.getElementById('gameArea').classList.remove('hidden');
+        });
+
+        socket.on('game_update', (data) => {
+            gameState = data;
+            updateGameDisplay(data);
+        });
+
+        socket.on('error', (data) => {
+            alert(`エラー: ${data.message}`);
+        });
+
+         socket.on('game_ended', (data) => {
+            alert(data.message);
+            // 次のラウンドボタンを表示
+            document.getElementById('nextRoundButton').classList.remove('hidden');
+            document.getElementById('actionButtons').classList.add('hidden');
+         });
+
+         socket.on('next_round_started', () => {
+            // 次のラウンド開始時の処理
+            document.getElementById('nextRoundButton').classList.add('hidden');
+            document.getElementById('actionButtons').classList.remove('hidden');
+         });
+
+        // ゲーム操作関数
+        function createRoom() {
+            const playerName = document.getElementById('playerName').value.trim();
+            if (!playerName) {
+                alert('名前を入力してください');
+                return;
+            }
+            socket.emit('create_room', { player_name: playerName });
+        }
+
+        function joinRoom() {
+            const playerName = document.getElementById('playerName').value.trim();
+            const roomId = document.getElementById('roomId').value.trim();
+            if (!playerName || !roomId) {
+                alert('名前とルームIDを入力してください');
+                return;
+            }
+            socket.emit('join_room', { room_id: roomId, player_name: playerName });
+        }
+
+        function startGame() {
+            if (currentRoomId) {
+                socket.emit('start_game', { room_id: currentRoomId });
+            }
+        }
+
+        function playerAction(action) {
+            if (!currentRoomId) return;
+
+            let data = { room_id: currentRoomId, action: action };
+
+            if (action === 'raise') {
+                const amount = parseInt(document.getElementById('raiseAmount').value);
+                if (isNaN(amount) || amount <= 0) {
+                    alert('有効なレイズ額を入力してください');
+                    return;
+                }
+                data.amount = amount;
+                hideRaiseInput();
+            }
+
+            socket.emit('player_action', data);
+        }
+
+        function showRaiseInput() {
+            document.getElementById('raiseInput').classList.remove('hidden');
+            document.getElementById('actionButtons').classList.add('hidden');
+        }
+
+        function hideRaiseInput() {
+            document.getElementById('raiseInput').classList.add('hidden');
+            document.getElementById('actionButtons').classList.remove('hidden');
+        }
+
+        function nextRound() {
+            if (!currentRoomId) return;
+            socket.emit('next_round', { room_id: currentRoomId });
+        }
+
+        function showHelp() {
+            document.getElementById('helpModal').classList.remove('hidden');
+        }
+
+        function closeHelp() {
+            document.getElementById('helpModal').classList.add('hidden');
+        }
+
+        // モーダル外クリックで閉じる
+        window.onclick = function(event) {
+            const modal = document.getElementById('helpModal');
+            if (event.target == modal) {
+                closeHelp();
+            }
+        }
+
+      function updateGameDisplay(gameData) {
+          // ポット表示
+          document.getElementById('potAmount').textContent = gameData.pot;
+          // コミュニティカード表示
+          const communityCardsDiv = document.getElementById('communityCards');
+          communityCardsDiv.innerHTML = gameData.community_cards.map(card => 
+              `<span class="card">${card}</span>`
+          ).join('');
+          // ゲーム状態に応じてボタン表示を制御
+          document.getElementById('actionButtons').classList.toggle('hidden', gameData.game_state === 'waiting');
+          document.getElementById('nextRoundButton').classList.toggle('hidden', gameData.game_state !== 'waiting');
+          // プレイヤー表示
+          const playersContainer = document.getElementById('playersContainer');
+          playersContainer.innerHTML = '';
+          for (const [playerId, player] of Object.entries(gameData.players)) {
+              const playerDiv = document.createElement('div');
+              playerDiv.className = `player ${player.is_folded ? 'folded' : ''}`;
+              playerDiv.innerHTML = `
+                  <div><strong>${player.name}</strong></div>
+                  <div>チップ: ${player.chips}MP</div>
+                  <div>ベット: ${player.current_bet}MP</div>
+                  ${player.is_folded ? '<div style="color: red;">フォールド</div>' : ''}
+                  ${gameData.current_turn_player === playerId ? '<div style="color: gold;">★ あなたのターン</div>' : ''}
+              `;
+              playersContainer.appendChild(playerDiv);
+          }
+          // 自分の手札表示
+          if (myPlayerId && gameData.players[myPlayerId]) {
+              const myHand = gameData.players[myPlayerId].hand;
+              document.getElementById('myHand').innerHTML = myHand.map(card => 
+                  `<span class="card">${card}</span>`
+              ).join('');
+              // ボタンの表示制御
+              const myPlayer = gameData.players[myPlayerId];
+              const callBtn = document.getElementById('callBtn');
+              const checkBtn = document.getElementById('checkBtn');
+
+              if (myPlayer.current_bet === gameData.current_bet) {
+                  // チェック可能
+                  checkBtn.style.display = 'inline-block';
+                  callBtn.style.display = 'none';
+              } else {
+                  // コール必要
+                  checkBtn.style.display = 'none';
+                  callBtn.style.display = 'inline-block';
+                  const callAmount = gameData.current_bet - myPlayer.current_bet;
+                  callBtn.textContent = `コール (${callAmount}MP)`;
+              }
+          }
+      }
+    </script>
+<footer>
+<div>
+    <p>制作者:KH</p>
+</footer>
+</body>
+</html>
