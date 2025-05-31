@@ -211,3 +211,13 @@ import os  # 追加
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 3000))  # ← Render対応の変更
     socketio.run(app, host='0.0.0.0', port=port)
+  
+from flask import Flask
+from flask_socketio import SocketIO
+
+app = Flask(__name__)
+socketio = SocketIO(app)
+
+# この行を追加：Renderが参照できるように
+application = app
+
