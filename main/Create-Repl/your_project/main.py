@@ -1,27 +1,23 @@
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import sys
 import os
 import uuid
-import eventlet
 
-# パスを修正して、poker_game.py を読み込めるようにする
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from poker_game import PokerGame  # ← 相対でなく通常のインポート（同階層）
+from poker_game import PokerGame  # 同階層にある poker_game.py をインポート
 
-# デバッグ用ログ（削除してもOK）
 print("current working dir:", os.getcwd())
 print("main.py path:", os.path.abspath(__file__))
 print("sys.path:", sys.path)
-
-# eventlet を使う前に monkey_patch
-eventlet.monkey_patch()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Render 参照用のエントリポイント
 application = app
 
 @app.route('/')
