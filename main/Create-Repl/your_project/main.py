@@ -20,9 +20,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 application = app
 
-@app.route('/')
-def index():
-    return render_template('index.html')
 
                         # ゲームルームを管理
 games = {}
