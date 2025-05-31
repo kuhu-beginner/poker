@@ -8,6 +8,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+
 # Renderでの参照用
 application = socketio
 
@@ -206,8 +207,7 @@ def handle_disconnect():
                                     break
 
 
-import os  # 追加
-
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 3000))  # ← Render対応の変更
+    import os
+    port = int(os.environ.get('PORT', 3000))
     socketio.run(app, host='0.0.0.0', port=port)
