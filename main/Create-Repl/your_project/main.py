@@ -1,8 +1,12 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from poker_game import PokerGame
+from poker_game import PokerGame  # ← ← これが動くかどうかのテスト対象
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import uuid
 import eventlet
+
 
 eventlet.monkey_patch()
 
