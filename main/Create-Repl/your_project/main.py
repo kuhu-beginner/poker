@@ -1,11 +1,16 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from poker_game import PokerGame  # ← ← これが動くかどうかのテスト対象
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from poker_game import PokerGame  # ← ← これが動くかどうかのテスト対象
+from .poker_game import PokerGame
 import uuid
 import eventlet
+import os
+print("current working dir:", os.getcwd())
+print("main.py path:", os.path.abspath(__file__))
+print("sys.path:", sys.path)
 
 
 eventlet.monkey_patch()
