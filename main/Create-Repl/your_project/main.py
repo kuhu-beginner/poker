@@ -1,16 +1,15 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from poker_game import PokerGame
 import uuid
 import eventlet
-eventlet.monkey_patch()  # ← 必須（Flaskと互換）
-
-# socketio.run の部分に変化は不要、Flask-SocketIOが自動的に eventlet を使用
-
+eventlet.monkey_patch()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Renderでの参照用
+application = app
 
                         # ゲームルームを管理
 games = {}
@@ -211,13 +210,3 @@ import os  # 追加
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 3000))  # ← Render対応の変更
     socketio.run(app, host='0.0.0.0', port=port)
-  
-from flask import Flask
-from flask_socketio import SocketIO
-
-app = Flask(__name__)
-socketio = SocketIO(app)
-
-# この行を追加：Renderが参照できるように
-application = app
-
