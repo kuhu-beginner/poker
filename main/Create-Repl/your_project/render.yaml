@@ -2,5 +2,5 @@ services:
   - type: web
     name: poker-backend
     env: python
-    buildCommand: "pip install -r main/Create-Repl/your_project/requirements.txt"
-    startCommand: "python main/Create-Repl/your_project/main.py"
+    buildCommand: pip install -r main/Create-Repl/your_project/requirements.txt
+    startCommand: gunicorn -k eventlet -w 1 main.Create-Repl.your_project.main:application
