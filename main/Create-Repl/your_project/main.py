@@ -9,7 +9,8 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Renderでの参照用
-application = app
+application = socketio
+
 
                         # ゲームルームを管理
 games = {}
